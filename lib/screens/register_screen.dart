@@ -11,8 +11,14 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  final _birthDateController = TextEditingController();
+  String? _gender;
+  String? _religion;
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -20,16 +26,121 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Register')),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Form(
           key: _formKey,
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              const Icon(
+                Icons.person_add_alt_1_rounded,
+                size: 100,
+                color: Colors.blueAccent,
+              ),
+              const SizedBox(height: 20),
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Full Name',
+                  prefixIcon:
+                      Icon(Icons.email_outlined), // Menambahkan warna ikon
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your full name';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _birthDateController,
+                decoration: const InputDecoration(
+                  labelText: 'Date of Birth',
+                  suffixIcon: Icon(Icons.calendar_today,
+                      color: Colors.blueAccent), // Menambahkan warna ikon
+                ),
+                readOnly: true,
+                onTap: () async {
+                  DateTime? pickedDate = await showDatePicker(
+                    context: context,
+                    initialDate: DateTime.now(),
+                    firstDate: DateTime(1900),
+                    lastDate: DateTime.now(),
+                  );
+                  if (pickedDate != null) {
+                    setState(() {
+                      _birthDateController.text =
+                          "${pickedDate.toLocal()}".split(' ')[0];
+                    });
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                decoration: const InputDecoration(
+                  labelText: 'Gender',
+                  prefixIcon: Icon(Icons.accessibility,
+                      color: Colors.blueAccent), // Menambahkan warna ikon
+                ),
+                value: _gender,
+                items: ['Male', 'Female']
+                    .map((gender) => DropdownMenuItem(
+                          value: gender,
+                          child: Text(gender),
+                        ))
+                    .toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _gender = value;
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<String>(
+                decoration: const InputDecoration(
+                  labelText: 'Religion',
+                  prefixIcon: Icon(Icons.favorite,
+                      color: Colors.blueAccent), // Menambahkan warna ikon
+                ),
+                value: _religion,
+                items:
+                    ['Islam', 'Christianity', 'Hinduism', 'Buddhism', 'Other']
+                        .map((religion) => DropdownMenuItem(
+                              value: religion,
+                              child: Text(religion),
+                            ))
+                        .toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _religion = value;
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _phoneController,
+                decoration: const InputDecoration(
+                  labelText: 'Phone Number',
+                  prefixIcon: Icon(Icons.phone,
+                      color: Colors.blueAccent), // Menambahkan warna ikon
+                ),
+                keyboardType: TextInputType.phone,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your phone number';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
               TextFormField(
                 controller: _emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: Icon(Icons.email,
+                      color: Colors.blueAccent), // Menambahkan warna ikon
+                ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your email';
@@ -40,11 +151,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _passwordController,
-                decoration: const InputDecoration(labelText: 'Password'),
+                decoration: const InputDecoration(
+                  labelText: 'Password',
+                  prefixIcon: Icon(Icons.lock,
+                      color: Colors.blueAccent), // Menambahkan warna ikon
+                ),
                 obscureText: true,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your password';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _confirmPasswordController,
+                decoration: const InputDecoration(
+                  labelText: 'Confirm Password',
+                  prefixIcon: Icon(Icons.lock_outline,
+                      color: Colors.blueAccent), // Menambahkan warna ikon
+                ),
+                obscureText: true,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please confirm your password';
+                  }
+                  if (value != _passwordController.text) {
+                    return 'Passwords do not match';
                   }
                   return null;
                 },
@@ -86,7 +220,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             );
                           } catch (e) {
                             setState(() {
-                              _errorMessage = 'Registration failed: ${e.toString()}';
+                              _errorMessage =
+                                  'Registration failed: ${e.toString()}';
                             });
                           } finally {
                             setState(() {
