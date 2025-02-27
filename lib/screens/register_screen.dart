@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import '../models/user_model.dart';
+import '../services/database_service.dart';
+import '../services/shared_prefs_service.dart';
 import 'login_screen.dart';
-import '../services/auth_service.dart';
+import '../utils/password_hash.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({Key? key}) : super(key: key);
@@ -22,6 +25,69 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoading = false;
   String? _errorMessage;
 
+  final _dbService = DatabaseService.instance;
+  late SharedPrefsService _prefsService;
+  bool _isInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializePrefs();
+  }
+
+  Future<void> _initializePrefs() async {
+    _prefsService = await SharedPrefsService.getInstance();
+    setState(() {
+      _isInitialized = true;
+    });
+  }
+
+  Future<void> _register() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // Check for existing email first
+      final existingUser =
+          await _dbService.getUserByEmail(_emailController.text);
+      if (existingUser != null) {
+        setState(() {
+          _errorMessage = 'Email sudah terdaftar';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      final hashedPassword = hashPassword(_passwordController.text);
+      final user = User(
+        name: _nameController.text,
+        email: _emailController.text,
+        password: hashedPassword,
+      );
+
+      await _dbService.insertUser(user);
+      await _prefsService.saveEmail(user.email);
+
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => LoginScreen(registeredEmail: user.email),
+        ),
+      );
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Gagal mendaftar: ${e.toString()}';
+        _isLoading = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -41,13 +107,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(
-                  labelText: 'Full Name',
-                  prefixIcon:
-                      Icon(Icons.email_outlined), // Menambahkan warna ikon
+                  labelText: 'Nama Lengkap',
+                  prefixIcon: Icon(Icons.person),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your full name';
+                    return 'Mohon masukkan nama lengkap Anda';
                   }
                   return null;
                 },
@@ -56,9 +121,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
               TextFormField(
                 controller: _birthDateController,
                 decoration: const InputDecoration(
-                  labelText: 'Date of Birth',
+                  labelText: 'Tanggal Lahir',
                   suffixIcon: Icon(Icons.calendar_today,
-                      color: Colors.blueAccent), // Menambahkan warna ikon
+                      color: Color.fromARGB(
+                          255, 193, 207, 231)), // Menambahkan warna ikon
                 ),
                 readOnly: true,
                 onTap: () async {
@@ -79,12 +145,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 decoration: const InputDecoration(
-                  labelText: 'Gender',
-                  prefixIcon: Icon(Icons.accessibility,
-                      color: Colors.blueAccent), // Menambahkan warna ikon
+                  labelText: 'Jenis Kelamin',
+                  prefixIcon: Icon(Icons.accessibility),
                 ),
                 value: _gender,
-                items: ['Male', 'Female']
+                items: ['Laki-laki', 'Perempuan']
                     .map((gender) => DropdownMenuItem(
                           value: gender,
                           child: Text(gender),
@@ -99,18 +164,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 decoration: const InputDecoration(
-                  labelText: 'Religion',
-                  prefixIcon: Icon(Icons.favorite,
-                      color: Colors.blueAccent), // Menambahkan warna ikon
+                  labelText: 'Agama',
+                  prefixIcon: Icon(Icons.favorite),
                 ),
                 value: _religion,
-                items:
-                    ['Islam', 'Christianity', 'Hinduism', 'Buddhism', 'Other']
-                        .map((religion) => DropdownMenuItem(
-                              value: religion,
-                              child: Text(religion),
-                            ))
-                        .toList(),
+                items: ['Islam', 'Kristen', 'Hindu', 'Buddha', 'Lainnya']
+                    .map((religion) => DropdownMenuItem(
+                          value: religion,
+                          child: Text(religion),
+                        ))
+                    .toList(),
                 onChanged: (value) {
                   setState(() {
                     _religion = value;
@@ -121,14 +184,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
               TextFormField(
                 controller: _phoneController,
                 decoration: const InputDecoration(
-                  labelText: 'Phone Number',
+                  labelText: 'Nomor Telepon',
                   prefixIcon: Icon(Icons.phone,
                       color: Colors.blueAccent), // Menambahkan warna ikon
                 ),
                 keyboardType: TextInputType.phone,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your phone number';
+                    return 'Mohon masukkan nomor telepon Anda';
+                  }
+                  final phoneRegex = RegExp(r'^\d{10,13}$');
+                  if (!phoneRegex.hasMatch(value)) {
+                    return 'Format nomor telepon tidak valid';
                   }
                   return null;
                 },
@@ -138,12 +205,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 controller: _emailController,
                 decoration: const InputDecoration(
                   labelText: 'Email',
-                  prefixIcon: Icon(Icons.email,
-                      color: Colors.blueAccent), // Menambahkan warna ikon
+                  prefixIcon: Icon(Icons.email),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your email';
+                    return 'Mohon masukkan email Anda';
+                  }
+                  final emailRegex =
+                      RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                  if (!emailRegex.hasMatch(value)) {
+                    return 'Format email tidak valid';
                   }
                   return null;
                 },
@@ -152,14 +223,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
               TextFormField(
                 controller: _passwordController,
                 decoration: const InputDecoration(
-                  labelText: 'Password',
-                  prefixIcon: Icon(Icons.lock,
-                      color: Colors.blueAccent), // Menambahkan warna ikon
+                  labelText: 'Kata Sandi',
+                  prefixIcon: Icon(Icons.lock),
                 ),
                 obscureText: true,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your password';
+                    return 'Mohon masukkan kata sandi Anda';
+                  }
+                  if (value.length < 6) {
+                    return 'Kata sandi minimal 6 karakter';
                   }
                   return null;
                 },
@@ -168,17 +241,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
               TextFormField(
                 controller: _confirmPasswordController,
                 decoration: const InputDecoration(
-                  labelText: 'Confirm Password',
-                  prefixIcon: Icon(Icons.lock_outline,
-                      color: Colors.blueAccent), // Menambahkan warna ikon
+                  labelText: 'Konfirmasi Kata Sandi',
+                  prefixIcon: Icon(Icons.lock_outline),
                 ),
                 obscureText: true,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please confirm your password';
+                    return 'Mohon konfirmasi kata sandi Anda';
                   }
                   if (value != _passwordController.text) {
-                    return 'Passwords do not match';
+                    return 'Kata sandi tidak cocok';
                   }
                   return null;
                 },
@@ -191,52 +263,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               const SizedBox(height: 8),
               ElevatedButton(
-                onPressed: _isLoading
-                    ? null
-                    : () async {
-                        if (_formKey.currentState!.validate()) {
-                          setState(() {
-                            _isLoading = true;
-                            _errorMessage = null;
-                          });
-
-                          try {
-                            AuthService.registerUser(
-                              _emailController.text,
-                              _passwordController.text,
-                            );
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Registration successful!'),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (context) => const LoginScreen()),
-                            );
-                          } catch (e) {
-                            setState(() {
-                              _errorMessage =
-                                  'Registration failed: ${e.toString()}';
-                            });
-                          } finally {
-                            setState(() {
-                              _isLoading = false;
-                            });
-                          }
-                        }
-                      },
+                onPressed: _isLoading ? null : _register,
                 child: _isLoading
                     ? const SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Register'),
+                    : const Text('Daftar'),
               ),
             ],
           ),

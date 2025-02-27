@@ -24,7 +24,7 @@ class WelcomeScreen extends StatelessWidget {
               ),
             ),
           ),
-          
+
           // Overlay dengan warna gradasi
           Container(
             decoration: BoxDecoration(
@@ -63,20 +63,21 @@ class WelcomeScreen extends StatelessWidget {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 30),
-                
-                // Tombol Mulai
+
+                // Single "Mulai" button
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 40, vertical: 12),
                     backgroundColor: Colors.orangeAccent,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(25),
                     ),
                   ),
                   onPressed: () {
-                    Navigator.push(
+                    Navigator.pushReplacement(
                       context,
-                      MaterialPageRoute(builder: (context) => const LoginScreen()),
+                      MaterialPageRoute(builder: (context) => LoginScreen()),
                     );
                   },
                   child: const Text(

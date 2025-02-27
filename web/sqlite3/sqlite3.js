@@ -1,0 +1,1 @@
+var sqlite3InitModule;

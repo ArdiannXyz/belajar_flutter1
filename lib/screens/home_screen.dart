@@ -1,72 +1,104 @@
-// lib/screens/home_screen.dart
 import 'package:flutter/material.dart';
-import 'login_screen.dart';  // Import halaman LoginScreen
+import '../models/user_model.dart';
+import '../services/database_service.dart';
+import '../services/shared_prefs_service.dart';
 
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+class HomeScreen extends StatefulWidget {
+  @override
+  _HomeScreenState createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final _dbService = DatabaseService.instance;
+  late SharedPrefsService _prefsService;
+  bool _isInitialized = false;
+  String? _userEmail;
+  List<User> _users = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _initializePrefs();
+  }
+
+  Future<void> _initializePrefs() async {
+    _prefsService = await SharedPrefsService.getInstance();
+    setState(() {
+      _isInitialized = true;
+    });
+    await _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    if (!_isInitialized) return;
+    try {
+      final email = _prefsService.getEmail();
+      final users = await _dbService.getAllUsers();
+      setState(() {
+        _userEmail = email;
+        _users = users;
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error loading data: ${e.toString()}')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Home', style: TextStyle(fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.blueAccent,
-        automaticallyImplyLeading: false, // Menonaktifkan back button default
+        title: const Text('Home'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginScreen()), // Kembali ke halaman Login
-              );
-            },
-          ),
+          if (_userEmail != null)
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text('Selamat datang, $_userEmail',
+                  style: const TextStyle(fontSize: 16)),
+            ),
+          if (_userEmail != null)
+            IconButton(
+              icon: const Icon(Icons.logout),
+              onPressed: () => _showLogoutDialog(context),
+            ),
         ],
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.blueAccent, Colors.lightBlueAccent],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+      body: !_isInitialized
+          ? const Center(child: CircularProgressIndicator())
+          : ListView.builder(
+              itemCount: _users.length,
+              itemBuilder: (context, index) {
+                final user = _users[index];
+                return ListTile(
+                  title: Text(user.name),
+                  subtitle: Text(user.email),
+                );
+              },
+            ),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Konfirmasi Keluar'),
+        content: const Text('Apakah Anda yakin ingin keluar?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
           ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.home,
-              size: 100,
-              color: Colors.white,
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Selamat datang di Home Page!',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {},
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
-              child: const Text(
-                'Explore More',
-                style: TextStyle(fontSize: 18),
-              ),
-            ),
-          ],
-        ),
+          TextButton(
+            onPressed: () async {
+              await _prefsService.clearEmail();
+              if (!mounted) return;
+              Navigator.pushReplacementNamed(context, '/login');
+            },
+            child: const Text('Keluar'),
+          ),
+        ],
       ),
     );
   }
